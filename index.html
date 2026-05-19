@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Calculator Pro</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font and JetBrains Mono for the Screen -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&family=JetBrains+Mono:wght=400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+        .display-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Glassmorphism background utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Tactile & Neuomorphic Button Effects */
+        .calc-btn {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .calc-btn:active, .calc-btn.pressed {
+            transform: scale(0.92);
+            filter: brightness(0.9);
+        }
+        .calc-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.3);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+        .calc-btn:focus:not(:active)::after {
+            animation: ripple 1s ease-out;
+        }
+        @keyframes ripple {
+            0% { transform: scale(0, 0); opacity: 0.5; }
+            100% { transform: scale(20, 20); opacity: 0; }
+        }
+
+        /* Customize scrollbars for the history pane */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+
+        /* Themes */
+        .theme-dark {
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a, #020617);
+            color: #f8fafc;
+        }
+        .theme-light {
+            background: radial-gradient(circle at top right, #f1f5f9, #e2e8f0, #cbd5e1);
+            color: #0f172a;
+        }
+        .theme-cyberpunk {
+            background: radial-gradient(circle at top right, #311042, #120024, #050014);
+            color: #00ffcc;
+        }
+
+        /* Theme adjustments for specific buttons */
+        .theme-light .glass-panel {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+        .theme-cyberpunk .glass-panel {
+            background: rgba(20, 0, 40, 0.7);
+            border: 1px solid #ff007f;
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.2);
+        }
+    </style>
+</head>
+<body class="theme-dark h-full flex flex-col justify-between overflow-x-hidden antialiased">
+
+    <!-- Top Header and Settings -->
+    <header class="w-full max-w-4xl mx-auto px-6 py-4 flex justify-between items-center z-10">
+        <div class="flex items-center space-x-2">
+            <span class="text-xs tracking-widest font-bold uppercase opacity-80 border border-current px-2 py-1 rounded">CALC PRO</span>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <!-- Voice Assistant Toggle -->
+            <button id="voiceToggle" class="p-2 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center relative group" title="Tap to talk (Voice Assistant)">
+                <svg id="voiceOffIcon" class="w-5 h-5 block text-gray-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                </svg>
+                <svg id="voiceOnIcon" class="w-5 h-5 hidden text-cyan-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                </svg>
+                <span class="absolute right-0 top-10 scale-0 transition-all rounded bg-gray-800 p-1.5 text-xs text-white group-hover:scale-100 z-50 whitespace-nowrap">Voice Assistant</span>
+            </button>
+
+            <!-- Audio Toggle Feedback -->
+            <button id="soundToggle" class="p-2 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center relative group" title="Toggle sound effects">
+                <svg id="soundOnIcon" class="w-5 h-5 block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <svg id="soundOffIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                <span class="absolute right-0 top-10 scale-0 transition-all rounded bg-gray-800 p-1 text-xs text-white group-hover:scale-100 z-50">Sfx / Voice</span>
+            </button>
+
+            <!-- Theme Switcher Container -->
+            <div class="flex items-center space-x-1 bg-black/20 p-1 rounded-full border border-white/10" id="themeSelectorContainer">
+                <button onclick="changeTheme('light')" class="w-7 h-7 rounded-full flex items-center justify-center hover:scale-110 transition-transform bg-white text-gray-800" title="Light Theme">☀️</button>
+                <button onclick="changeTheme('dark')" class="w-7 h-7 rounded-full flex items-center justify-center hover:scale-110 transition-transform bg-gray-800 text-yellow-400" title="Dark Theme">🌙</button>
+                <button onclick="changeTheme('cyberpunk')" class="w-7 h-7 rounded-full flex items-center justify-center hover:scale-110 transition-transform bg-purple-900 text-cyan-400 font-bold text-xs" title="Cyberpunk Theme">⚡</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass-panel rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 space-y-4 relative" id="calcContainer">
+            
+            <!-- Glow Accent Behind (Cyberpunk Mode Only) -->
+            <div class="absolute -inset-1 rounded-3xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-400 opacity-20 blur-xl -z-10 transition-opacity duration-300 hidden" id="glowAccent"></div>
+
+            <!-- Display Screen Panel -->
+            <div class="w-full rounded-2xl p-4 bg-black/30 flex flex-col justify-between relative overflow-hidden border border-white/5 shadow-inner">
+                
+                <!-- State/Memory indicator display -->
+                <div class="flex justify-between items-center text-xs opacity-60 font-semibold mb-2">
+                    <div class="flex space-x-2">
+                        <span id="memIndicator" class="hidden text-pink-500 uppercase tracking-widest">MEM</span>
+                        <span id="keyboardIndicator" class="text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Keyboard Active
+                        </span>
+                        <span id="voiceIndicator" class="hidden text-cyan-400 uppercase tracking-widest flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span> Listening...
+                        </span>
+                    </div>
+                    <div class="text-right max-w-[70%] truncate display-font text-[10px]" id="operationIndicator">READY</div>
+                </div>
+
+                <!-- Equation History display -->
+                <div class="w-full text-right overflow-x-auto text-xs opacity-50 display-font whitespace-nowrap custom-scrollbar mb-1 min-h-[1.5rem]" id="historyDisplay"></div>
+
+                <!-- Main Active Display -->
+                <div class="w-full text-right overflow-x-auto text-3xl font-bold display-font tracking-tight whitespace-nowrap custom-scrollbar focus:outline-none select-all relative" id="mainDisplay">
+                    0
+                </div>
+
+                <!-- Real-time computation preview -->
+                <div class="w-full text-right text-sm opacity-40 display-font mt-1 min-h-[1.25rem] truncate" id="previewDisplay"></div>
+            </div>
+
+            <!-- Memory & Extra Actions Bar -->
+            <div class="grid grid-cols-4 gap-2">
+                <button data-key="mc" onclick="handleMemory('MC')" class="calc-btn py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/20 uppercase transition-colors">MC</button>
+                <button data-key="mr" onclick="handleMemory('MR')" class="calc-btn py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/20 uppercase transition-colors">MR</button>
+                <button data-key="m+" onclick="handleMemory('M+')" class="calc-btn py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/20 uppercase transition-colors">M+</button>
+                <button data-key="m-" onclick="handleMemory('M-')" class="calc-btn py-2 text-xs font-semibold rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/20 uppercase transition-colors">M-</button>
+            </div>
+
+            <!-- Standard Keypad Panel -->
+            <div class="grid grid-cols-4 gap-3 flex-grow" id="keypad">
+                <!-- Row 1: Operations -->
+                <button data-key="Escape" onclick="clearAll()" class="calc-btn h-14 rounded-2xl font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 shadow-md">AC</button>
+                <button data-key="Backspace" onclick="backspace()" class="calc-btn h-14 rounded-2xl font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414A2 2 0 0010.828 19H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path></svg>
+                </button>
+                <button data-key="%" onclick="inputOperator('%')" class="calc-btn h-14 rounded-2xl font-bold text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20">%</button>
+                <button data-key="/" onclick="inputOperator('÷')" class="calc-btn h-14 rounded-2xl font-bold text-pink-500 bg-pink-500/10 hover:bg-pink-500/20 text-xl">÷</button>
+
+                <!-- Row 2: 7, 8, 9, x -->
+                <button data-key="7" onclick="inputDigit('7')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">7</button>
+                <button data-key="8" onclick="inputDigit('8')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">8</button>
+                <button data-key="9" onclick="inputDigit('9')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">9</button>
+                <button data-key="*" onclick="inputOperator('×')" class="calc-btn h-14 rounded-2xl font-bold text-pink-500 bg-pink-500/10 hover:bg-pink-500/20 text-xl">×</button>
+
+                <!-- Row 3: 4, 5, 6, - -->
+                <button data-key="4" onclick="inputDigit('4')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">4</button>
+                <button data-key="5" onclick="inputDigit('5')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">5</button>
+                <button data-key="6" onclick="inputDigit('6')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">6</button>
+                <button data-key="-" onclick="inputOperator('−')" class="calc-btn h-14 rounded-2xl font-bold text-pink-500 bg-pink-500/10 hover:bg-pink-500/20 text-xl">−</button>
+
+                <!-- Row 4: 1, 2, 3, + -->
+                <button data-key="1" onclick="inputDigit('1')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">1</button>
+                <button data-key="2" onclick="inputDigit('2')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">2</button>
+                <button data-key="3" onclick="inputDigit('3')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">3</button>
+                <button data-key="+" onclick="inputOperator('+')" class="calc-btn h-14 rounded-2xl font-bold text-pink-500 bg-pink-500/10 hover:bg-pink-500/20 text-xl">+</button>
+
+                <!-- Row 5: +/-, 0, ., = -->
+                <button data-key="negate" onclick="toggleSign()" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-lg">±</button>
+                <button data-key="0" onclick="inputDigit('0')" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl shadow-inner">0</button>
+                <button data-key="." onclick="inputDecimal()" class="calc-btn h-14 rounded-2xl font-semibold bg-white/5 hover:bg-white/10 text-xl">.</button>
+                <button data-key="Enter" onclick="calculateResult()" class="calc-btn h-14 rounded-2xl font-bold text-white bg-gradient-to-r from-pink-500 to-purple-600 shadow-lg shadow-purple-500/20 text-xl">=</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Shortcuts and Info Footer -->
+    <footer class="w-full max-w-lg mx-auto px-6 py-4 text-center">
+        <div class="text-xs opacity-50 flex flex-col space-y-2">
+            <p>🎙️ Click Microphone: Try "What is 15 plus 10?" or "Clear screen"</p>
+            <p>⌨️ Keyboard: Numbers, Operations, Backspace, Enter, Esc</p>
+            <p class="font-light">Built with custom Audio Synth feedback & premium responsive glass panels</p>
+        </div>
+    </footer>
+
+    <script>
+        // Core state management
+        let currentInput = "0";
+        let previousInput = "";
+        let currentOperator = "";
+        let isNewValue = false;
+        let memoryValue = 0;
+        let soundEnabled = true;
+
+        // Sound Feedback System (Using Web Audio API to synthesis premium soft click clicks)
+        let audioCtx = null;
+        function playClickSound(frequency = 600, duration = 0.05, type = "triangle") {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // Auto-resume audio context if suspended by browser interaction rules
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                
+                // Fast sound synthesis for touch click feedback
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                
+                // Linear decay envelope is fully compatible and doesn't throw timing errors
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (err) {
+                console.warn("Audio synthesis is restricted or not supported yet:", err);
+            }
+        }
+
+        // DOM elements
+        const mainDisplay = document.getElementById('mainDisplay');
+        const historyDisplay = document.getElementById('historyDisplay');
+        const previewDisplay = document.getElementById('previewDisplay');
+        const operationIndicator = document.getElementById('operationIndicator');
+        const memIndicator = document.getElementById('memIndicator');
+        const soundOnIcon = document.getElementById('soundOnIcon');
+        const soundOffIcon = document.getElementById('soundOffIcon');
+        const soundToggleButton = document.getElementById('soundToggle');
+
+        // Voice DOM Elements
+        const voiceToggle = document.getElementById('voiceToggle');
+        const voiceOffIcon = document.getElementById('voiceOffIcon');
+        const voiceOnIcon = document.getElementById('voiceOnIcon');
+        const keyboardIndicator = document.getElementById('keyboardIndicator');
+        const voiceIndicator = document.getElementById('voiceIndicator');
+
+        // Safe Haptic Vibration feedback wrapper to prevent sandboxed permission crashes
+        function hapticFeedback() {
+            try {
+                if (navigator && typeof navigator.vibrate === 'function') {
+                    navigator.vibrate(8);
+                }
+            } catch (err) {
+                // Silently catch security exceptions when run within sandboxed iframes
+                console.warn("Haptic vibration blocked by browser permissions policy:", err);
+            }
+        }
+
+        // Auto-scale font of the display so long numbers do not break formatting
+        function updateDisplaySize() {
+            const length = mainDisplay.innerText.length;
+            if (length > 15) {
+                mainDisplay.className = "w-full text-right overflow-x-auto text-lg font-bold display-font tracking-tight whitespace-nowrap custom-scrollbar focus:outline-none select-all relative";
+            } else if (length > 10) {
+                mainDisplay.className = "w-full text-right overflow-x-auto text-2xl font-bold display-font tracking-tight whitespace-nowrap custom-scrollbar focus:outline-none select-all relative";
+            } else {
+                mainDisplay.className = "w-full text-right overflow-x-auto text-4xl font-bold display-font tracking-tight whitespace-nowrap custom-scrollbar focus:outline-none select-all relative";
+            }
+        }
+
+        // Render values to displays
+        function renderDisplays() {
+            mainDisplay.innerText = currentInput;
+            
+            // Format history
+            if (previousInput !== "") {
+                historyDisplay.innerText = `${previousInput} ${currentOperator}`;
+            } else {
+                historyDisplay.innerText = "";
+            }
+
+            // Interactive Dynamic Indicator
+            if (currentOperator) {
+                operationIndicator.innerText = `CALCULATING...`;
+            } else {
+                operationIndicator.innerText = `READY`;
+            }
+
+            updateDisplaySize();
+            calculateRealtimePreview();
+        }
+
+        // Pure arithmetic helper with precision handling
+        function compute(num1, num2, op) {
+            const a = parseFloat(num1);
+            const b = parseFloat(num2);
+            if (isNaN(a) || isNaN(b)) return 0;
+
+            let result = 0;
+            switch(op) {
+                case '+': result = a + b; break;
+                case '−': case '-': result = a - b; break;
+                case '×': case '*': result = a * b; break;
+                case '÷': case '/': 
+                    if (b === 0) return "Error: Div by 0";
+                    result = a / b; 
+                    break;
+                case '%': result = (a / 100) * b; break;
+                default: return b;
+            }
+
+            // Deal with JS floating point issues (e.g. 0.1 + 0.2)
+            return parseFloat(result.toFixed(10));
+        }
+
+        // Calculate a passive live preview as users type
+        function calculateRealtimePreview() {
+            if (currentOperator !== "" && previousInput !== "" && !isNewValue) {
+                const preview = compute(previousInput, currentInput, currentOperator);
+                if (preview === "Error: Div by 0") {
+                    previewDisplay.innerText = "Cannot divide by zero";
+                } else if (!isNaN(preview)) {
+                    previewDisplay.innerText = `= ${preview}`;
+                } else {
+                    previewDisplay.innerText = "";
+                }
+            } else {
+                previewDisplay.innerText = "";
+            }
+        }
+
+        // Handling Digits Click
+        function inputDigit(digit) {
+            playClickSound(580, 0.04, "sine");
+            hapticFeedback();
+            speak(digit); // Speak the digits as they are pressed
+
+            if (isNewValue) {
+                currentInput = digit;
+                isNewValue = false;
+            } else {
+                if (currentInput === "0") {
+                    currentInput = digit;
+                } else {
+                    // Maximum digit capacity prevention
+                    if (currentInput.replace(/[^0-9]/g, "").length >= 16) return;
+                    currentInput += digit;
+                }
+            }
+            renderDisplays();
+        }
+
+
+        // Handling Decimal Button
+        function inputDecimal() {
+            playClickSound(620, 0.04, "sine");
+            hapticFeedback();
+            speak("point"); // Speak the decimal point
+
+            if (isNewValue) {
+                currentInput = "0.";
+                isNewValue = false;
+                renderDisplays();
+                return;
+            }
+
+            if (!currentInput.includes('.')) {
+                currentInput += '.';
+            }
+            renderDisplays();
+        }
+
+        // Handling operator key inputs
+        function inputOperator(operator) {
+            playClickSound(700, 0.06, "triangle");
+            hapticFeedback();
+
+            // Translate math symbols to clear spoken words
+            let opName = operator;
+            if (operator === '+') opName = "plus";
+            else if (operator === '−' || operator === '-') opName = "minus";
+            else if (operator === '×' || operator === '*') opName = "times";
+            else if (operator === '÷' || operator === '/') opName = "divided by";
+            else if (operator === '%') opName = "percent";
+            speak(opName);
+
+            const numValue = parseFloat(currentInput);
+
+            // Special single percent evaluation if no previous operand exists
+            if (operator === '%' && previousInput === "") {
+                currentInput = (numValue / 100).toString();
+                renderDisplays();
+                return;
+            }
+
+            if (currentOperator !== "" && !isNewValue) {
+                // Chains operations
+                const result = compute(previousInput, currentInput, currentOperator);
+                previousInput = result.toString();
+                currentInput = result.toString();
+            } else {
+                previousInput = currentInput;
+            }
+
+            currentOperator = operator;
+            isNewValue = true;
+            renderDisplays();
+        }
+
+        // Toggle numbers between positive and negative values
+        function toggleSign() {
+            playClickSound(650, 0.05, "sine");
+            hapticFeedback();
+            currentInput = (parseFloat(currentInput) * -1).toString();
+            speak("negative " + currentInput);
+            renderDisplays();
+        }
+
+        // Clear everything (All Clear)
+        function clearAll() {
+            playClickSound(400, 0.1, "triangle");
+            hapticFeedback();
+            speak("clear");
+            currentInput = "0";
+            previousInput = "";
+            currentOperator = "";
+            isNewValue = false;
+            renderDisplays();
+        }
+
+        // Backspace - remove last digit
+        function backspace() {
+            playClickSound(450, 0.05, "triangle");
+            hapticFeedback();
+            speak("back");
+
+            if (isNewValue) return;
+
+            if (currentInput.length > 1) {
+                currentInput = currentInput.slice(0, -1);
+                // Handle deleting down to sign
+                if (currentInput === "-") currentInput = "0";
+            } else {
+                currentInput = "0";
+            }
+            renderDisplays();
+        }
+
+
+        // Evaluate the equation
+        function calculateResult() {
+            playClickSound(800, 0.08, "sine");
+            hapticFeedback();
+
+            if (currentOperator === "" || previousInput === "") return;
+
+            const finalResult = compute(previousInput, currentInput, currentOperator);
+            
+            // Format expression record for the history Display
+            historyDisplay.innerText = `${previousInput} ${currentOperator} ${currentInput} =`;
+            currentInput = finalResult.toString();
+            currentOperator = "";
+            previousInput = "";
+            isNewValue = true;
+            
+            updateDisplaySize();
+            previewDisplay.innerText = "";
+            
+            speak("equals " + currentInput); // Speak out the final solution
+        }
+
+        // Memory handler (MC, MR, M+, M-)
+        function handleMemory(operation) {
+            playClickSound(660, 0.06, "sine");
+            hapticFeedback();
+
+            const num = parseFloat(currentInput);
+
+            switch(operation) {
+                case 'MC':
+                    memoryValue = 0;
+                    memIndicator.classList.add('hidden');
+                    break;
+                case 'MR':
+                    currentInput = memoryValue.toString();
+                    isNewValue = true;
+                    break;
+                case 'M+':
+                    memoryValue += num;
+                    memIndicator.classList.remove('hidden');
+                    isNewValue = true;
+                    break;
+                case 'M-':
+                    memoryValue -= num;
+                    memIndicator.classList.remove('hidden');
+                    isNewValue = true;
+                    break;
+            }
+            renderDisplays();
+        }
+
+        // Vocalize speech feedback
+        function speak(text) {
+            if (!soundEnabled) return;
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // Stop current spoken tracks to prevent queue buildup lag
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 1.3; // Speed it up slightly so it speaks responsive words as you type
+                    utterance.pitch = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }
+            } catch (err) {
+                console.warn("Speech Synthesis failed:", err);
+            }
+        }
+
+        // Processes verbal equations and instructions directly
+        function processVoiceCommand(transcript) {
+            const normalized = transcript.toLowerCase().trim();
+            
+            // Action Commands
+            if (normalized.includes("clear") || normalized.includes("reset") || normalized.includes("start over") || normalized.includes("ac")) {
+                clearAll();
+                speak("Cleared everything.");
+                return;
+            }
+            if (normalized.includes("delete") || normalized.includes("backspace") || normalized.includes("remove") || normalized.includes("undo")) {
+                backspace();
+                speak("Deleted.");
+                return;
+            }
+
+            // Map standard spoken operators
+            let expression = normalized;
+            expression = expression.replace(/plus|add|and/g, "+");
+            expression = expression.replace(/minus|subtract|take away/g, "-");
+            expression = expression.replace(/times|multiply|multiplied by|x/g, "*");
+            expression = expression.replace(/divide|divided by|over/g, "/");
+            expression = expression.replace(/percent|percentage/g, "%");
+            expression = expression.replace(/point/g, ".");
+            expression = expression.replace(/equals|equal|is|calculate|solve/g, "=");
+
+            // Clean string - leave only valid calculation entities
+            expression = expression.replace(/[^0-9+\-*/%.=]/g, "");
+
+            if (!expression) {
+                speak("I didn't capture a clear mathematical command. Please try again.");
+                return;
+            }
+
+            // Run evaluation sequentially over character instructions
+            clearAll();
+            for (let char of expression) {
+                if (char >= '0' && char <= '9') {
+                    inputDigit(char);
+                } else if (char === '.') {
+                    inputDecimal();
+                } else if (char === '+') {
+                    inputOperator('+');
+                } else if (char === '-') {
+                    inputOperator('−');
+                } else if (char === '*') {
+                    inputOperator('×');
+                } else if (char === '/') {
+                    inputOperator('÷');
+                } else if (char === '%') {
+                    inputOperator('%');
+                } else if (char === '=') {
+                    calculateResult();
+                    break;
+                }
+            }
+
+            // Fallback: If calculation wasn't explicitly evaluated with '=', trigger it automatically for convenience
+            if ((expression.includes('+') || expression.includes('-') || expression.includes('*') || expression.includes('/')) && !expression.includes('=')) {
+                calculateResult();
+            }
+
+            // Announce evaluated result
+            setTimeout(() => {
+                const finalVal = mainDisplay.innerText;
+                speak(`The result is ${finalVal}`);
+            }, 400);
+        }
+
+        // Setup Native Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let speechEngine = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            speechEngine = new SpeechRecognition();
+            speechEngine.continuous = false;
+            speechEngine.lang = 'en-US';
+            speechEngine.interimResults = false;
+
+            speechEngine.onstart = () => {
+                isListening = true;
+                voiceOffIcon.classList.add('hidden');
+                voiceOnIcon.classList.remove('hidden');
+                voiceIndicator.classList.remove('hidden');
+                keyboardIndicator.classList.add('hidden');
+                playClickSound(880, 0.1, "sine");
+            };
+
+            speechEngine.onend = () => {
+                isListening = false;
+                voiceOffIcon.classList.remove('hidden');
+                voiceOnIcon.classList.add('hidden');
+                voiceIndicator.classList.add('hidden');
+                keyboardIndicator.classList.remove('hidden');
+            };
+
+            speechEngine.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                operationIndicator.innerText = `HEARD: "${transcript.toUpperCase()}"`;
+                processVoiceCommand(transcript);
+            };
+
+            speechEngine.onerror = (event) => {
+                console.error("Speech Recognition Error:", event.error);
+                if (event.error === 'not-allowed') {
+                    speak("Microphone access was denied. Please update browser permission settings.");
+                    operationIndicator.innerText = "MIC PERMISSION REJECTED";
+                } else {
+                    operationIndicator.innerText = "ERROR TRY AGAIN";
+                }
+            };
+
+            // Bind Toggle trigger
+            voiceToggle.addEventListener('click', () => {
+                if (isListening) {
+                    speechEngine.stop();
+                } else {
+                    try {
+                        speechEngine.start();
+                    } catch (e) {
+                        console.warn("Voice engine launch interrupted:", e);
+                    }
+                }
+            });
+        } else {
+            // Hide/deactivate voice button if Speech API is completely absent (e.g. outdated browser/environment)
+            voiceToggle.style.opacity = "0.5";
+            voiceToggle.title = "Voice Input Unsupported in this browser";
+            voiceToggle.addEventListener('click', () => {
+                operationIndicator.innerText = "UNSUPPORTED WEB API";
+            });
+        }
+
+        // Multi-theme switcher engine
+        function changeTheme(themeName) {
+            playClickSound(1000, 0.03, "sine");
+            const body = document.body;
+            const glow = document.getElementById('glowAccent');
+            
+            // Wipe theme classes
+            body.className = "h-full flex flex-col justify-between overflow-x-hidden antialiased";
+            if (glow) glow.classList.add('hidden');
+
+            if (themeName === 'light') {
+                body.classList.add('theme-light');
+            } else if (themeName === 'cyberpunk') {
+                body.classList.add('theme-cyberpunk');
+                if (glow) glow.classList.remove('hidden');
+            } else {
+                body.classList.add('theme-dark');
+            }
+        }
+
+        // Toggle sound feedback active status
+        soundToggleButton.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundOnIcon.classList.remove('hidden');
+                soundOffIcon.classList.add('hidden');
+                playClickSound(600, 0.05);
+            } else {
+                soundOnIcon.classList.add('hidden');
+                soundOffIcon.classList.remove('hidden');
+            }
+        });
+
+        // Keyboard mapping and UI visual feedback connection
+        document.addEventListener('keydown', (event) => {
+            let key = event.key;
+            
+            // Map standard aliases for computational buttons
+            if (key === '*') key = '*';
+            if (key === '/') key = '/';
+            if (key === 'Enter' || key === '=') {
+                event.preventDefault();
+                key = 'Enter';
+            }
+
+            // Find matching UI buttons to trigger interactive click effect (safely caught)
+            try {
+                let querySelector = `button[data-key="${key}"]`;
+                if (key === '*') querySelector = `button[data-key="*"]`;
+                if (key === '/') querySelector = `button[data-key="/"]`;
+                if (key === '-') querySelector = `button[data-key="-"]`;
+                
+                const btn = document.querySelector(querySelector);
+                if (btn) {
+                    btn.classList.add('pressed');
+                    setTimeout(() => btn.classList.remove('pressed'), 150);
+                }
+            } catch (e) {
+                // Ignore syntax exceptions for special system keys
+            }
+
+            // Handle functional key events
+            if (key >= '0' && key <= '9') {
+                inputDigit(key);
+            } else if (key === '.') {
+                inputDecimal();
+            } else if (key === '+') {
+                inputOperator('+');
+            } else if (key === '-') {
+                inputOperator('−');
+            } else if (key === '*') {
+                inputOperator('×');
+            } else if (key === '/') {
+                inputOperator('÷');
+            } else if (key === '%') {
+                inputOperator('%');
+            } else if (key === 'Enter') {
+                calculateResult();
+            } else if (key === 'Backspace') {
+                backspace();
+            } else if (key === 'Escape') {
+                clearAll();
+            }
+        });
+
+        // Load and synchronize displays safely even if DOM is already fully loaded
+        function initializeCalculator() {
+            renderDisplays();
+        }
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            initializeCalculator();
+        } else {
+            document.addEventListener('DOMContentLoaded', initializeCalculator);
+        }
+    </script>
+</body>
+</html>
